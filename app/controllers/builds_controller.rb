@@ -25,37 +25,64 @@ class BuildsController < ApplicationController
             :target_url => "http://192.168.115.1:3000/builds/#{build._id}",
             :description => "Evaluation in progress..."}
         )
-        assignee = body['pull_request']['assignee']
-        if assignee.nil?
-          client.create_status(repo_id, sha,
-              'failure', {:context => "Process Checker",
-              :target_url => "http://192.168.115.1:3000/builds/#{build._id}",
-              :description => "This PR needs to be assigned before it is merged!"}
-          )
-        end
+        # assignee = body['pull_request']['assignee']
+        # if assignee.nil?
+        #   client.create_status(repo_id, sha,
+        #       'failure', {:context => "Process Checker",
+        #       :target_url => "http://192.168.115.1:3000/builds/#{build._id}",
+        #       :description => "This PR needs to be assigned before it is merged!"}
+        #   )
+        # else
+        #   response_body = response.body
+        #   render json: body
+        # end
+
+        commits = client.pull_request_commits(repo_name, pull_request_id.to_i)
+        puts "SHAAAAAA :: #{commits[0]['sha']}"
+        client_obiwan = Octokit::Client.new :login => 'obiwan', :password => 'P@ssw0rd', :api_endpoint => "#{GitHub['server']['url']}/api/v3"
+        user = client_obiwan.user
+        user.login
+        client_obiwan.create_commit_comment(repo_name, commits[0]['sha'], "I think we need some **documentation** here :frowning:", "src/main/java/com/github/Calculator.java", 20, 20, options = {})
+        user.logout
+
         puts "COMMIT COUNT ==> #{body['pull_request']['commits'].to_i}"
-        if body['pull_request']['commits'].to_i.even?
-          sleep(10.seconds)
+        if body['pull_request']['commits'].to_i % 3 == 0
+          sleep(2.seconds)
           puts "FOUND EVEN"
-          client_yoda = Octokit::Client.new :login => 'yoda', :password => 'P@ssw0rd', :api_endpoint => "#{GitHub['server']['url']}/api/v3"
-          puts client_yoda.inspect
-          user = client_yoda.user
+          client_vader = Octokit::Client.new :login => 'darthvader', :password => 'P@ssw0rd', :api_endpoint => "#{GitHub['server']['url']}/api/v3"
+          user = client_vader.user
           user.login
-          client_yoda.add_comment(repo_name, pull_request_id.to_i, "test first you should!", options = {})
+          client_vader.add_comment(repo_name, pull_request_id.to_i, "build is **passing** let's :shipit: to QA. \n\n **@developers** anyone have an issue with merging this?", options = {})
           user.logout
           build.update_attributes(:elapsed_time => time + 5.minutes, :state => "completed", :status => 'success')
           client.create_status(repo_id, sha,
               'success', {:context => "SquirrelCI Build",
               :target_url => "http://192.168.115.1:3000/builds/#{build._id}",
               :description => "Great coding! Keep up the good work."})
+        elsif body['pull_request']['commits'].to_i % 2 == 0
+          sleep(2.seconds)
+          puts "DIVISIBLE BY 2"
+          commits = client.pull_request_commits(repo_name, pull_request_id.to_i)
+          client_obiwan = Octokit::Client.new :login => 'obiwan', :password => 'P@ssw0rd', :api_endpoint => "#{GitHub['server']['url']}/api/v3"
+          user = client_obiwan.user
+          user.login
+          client_obiwan.create_pull_request_comment(repo_name, pull_request_id.to_i, "I think we need some **documentation** here :frowning:", commits[0].sha, "src/main/java/com/github/Calculator.java", 19)
+          user.logout
+          sleep(2.seconds)
+          build.update_attributes(:elapsed_time => time + 3.minutes, :state => "completed", :status => 'failure')
+          client.create_status(repo_id, sha,
+              'failure', {:context => "SquirrelCI Build",
+              :target_url => "http://192.168.115.1:3000/builds/#{build._id}",
+              :description => "Build failed! Do you need some help?"})
         else
-          sleep(10.seconds)
-          puts "FOUND ODD"
+          sleep(2.seconds)
+          puts ""
           client_yoda = Octokit::Client.new :login => 'yoda', :password => 'P@ssw0rd', :api_endpoint => "#{GitHub['server']['url']}/api/v3"
           user = client_yoda.user
           user.login
-          client_yoda.add_comment(repo_name, pull_request_id.to_i, "test first you should!", options = {})
+          client_yoda.add_comment(repo_name, pull_request_id.to_i, ":-1: test first you should, young padawan!", options = {})
           user.logout
+          sleep(2.seconds)
           build.update_attributes(:elapsed_time => time + 3.minutes, :state => "completed", :status => 'failure')
           client.create_status(repo_id, sha,
               'failure', {:context => "SquirrelCI Build",
