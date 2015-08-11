@@ -47,9 +47,8 @@ class BuildsController < ApplicationController
         #puts "COMMENTS :: #{comments.inspect}"
         puts "COMMENTS :: #{comments.size}"
         # puts "COMMIT COUNT ==> #{body['pull_request']['commits'].to_i}"
-        if body['pull_request']['commits'].to_i % 3 == 0
+        if (body['pull_request']['commits'].to_i == 3) && (comments.size == 1)
           sleep(5.seconds)
-          # puts "FOUND EVEN"
           build.update_attributes(:elapsed_time => time + 5.minutes, :state => "completed", :status => 'success')
           client.create_status(repo_id, sha,
               'success', {:context => "SquirrelCI Build",
@@ -59,11 +58,9 @@ class BuildsController < ApplicationController
           client_vader = Octokit::Client.new :login => 'darthvader', :password => 'P@ssw0rd', :api_endpoint => "#{GitHub['server']['url']}/api/v3"
           user = client_vader.user
           user.login
-          client_vader.add_comment(repo_name, pull_request_id.to_i, "build is **passing** let's :shipit: to QA. \n\n **@developers** anyone have an issue with merging this?", options = {})
+          client_vader.add_comment(repo_name, pull_request_id.to_i, "build is **passing** let's :shipit: to QA. \n\n @republic/developers anyone have an issue with merging this?", options = {})
           user.logout
-        elsif (body['pull_request']['commits'].to_i % 2 == 0) && (comments.size == 1)
-          sleep(5.seconds)
-          # puts "DIVISIBLE BY 2"
+        elsif (body['pull_request']['commits'].to_i == 2) && (comments.size == 1)
           commits = client.pull_request_commits(repo_name, pull_request_id.to_i)
           client_obiwan = Octokit::Client.new :login => 'obiwan', :password => 'P@ssw0rd', :api_endpoint => "#{GitHub['server']['url']}/api/v3"
           user = client_obiwan.user
@@ -75,19 +72,25 @@ class BuildsController < ApplicationController
               'failure', {:context => "SquirrelCI Build",
               :target_url => "http://192.168.115.1:3000/builds/#{build._id}",
               :description => "Build failed! Do you need some help?"})
-        elsif (comments.size == 0)
-          sleep(5.seconds)
-          # puts ""
-          client_yoda = Octokit::Client.new :login => 'yoda', :password => 'P@ssw0rd', :api_endpoint => "#{GitHub['server']['url']}/api/v3"
-          user = client_yoda.user
-          user.login
-          client_yoda.add_comment(repo_name, pull_request_id.to_i, ":-1: test first you should, young padawan!", options = {})
-          user.logout
+        elsif (body['pull_request']['commits'].to_i == 1) && (comments.size == 0 || comments.size == 1)
+          if comments.size == 0
+            sleep(5.seconds)
+            client_yoda = Octokit::Client.new :login => 'yoda', :password => 'P@ssw0rd', :api_endpoint => "#{GitHub['server']['url']}/api/v3"
+            user = client_yoda.user
+            user.login
+            client_yoda.add_comment(repo_name, pull_request_id.to_i, ":-1: test first you should, young padawan!", options = {})
+            user.logout
+          end
           build.update_attributes(:elapsed_time => time + 3.minutes, :state => "completed", :status => 'failure')
           client.create_status(repo_id, sha,
               'failure', {:context => "SquirrelCI Build",
               :target_url => "http://192.168.115.1:3000/builds/#{build._id}",
               :description => "Build failed! Do you need some help?"})
+        else
+          client.create_status(repo_id, sha,
+              'success', {:context => "SquirrelCI Build",
+              :target_url => "http://192.168.115.1:3000/builds/#{build._id}",
+              :description => "Great coding! Keep up the good work."})
         end
 
         #puts body.inspect
